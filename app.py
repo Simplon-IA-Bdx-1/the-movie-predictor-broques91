@@ -72,6 +72,20 @@ def insertMovie(title, duration, original_title, rating, release_date):
     disconnectDatabase(cnx)
 
 
+def importData(csvFileName):
+    cnx = connectToDatabase()
+    cursor = createCursor(cnx)
+    with open(args.file) as csvDataFile:
+        csvReader = csv.reader(csvDataFile)
+        next(csvReader)
+        for row in csvReader:
+            cursor.execute("INSERT INTO movies (title, original_title, duration, rating, release_date) VALUES (%s, %s, %s, %s, %s)", row)
+    cnx.commit()
+    print("Données importées avec succès !")
+    closeCursor(cursor)
+    disconnectDatabase(cnx)
+
+
 def printPerson(person):
     print("#{}: {} {}".format(person['id'], person['firstname'], person['lastname']))
 
@@ -99,6 +113,9 @@ insert_parser.add_argument('--duration', help='Durée')
 insert_parser.add_argument('--original-title', help='Titre original')
 insert_parser.add_argument('--rating', help='Classification')
 insert_parser.add_argument('--release-date', help='Date de sortie')
+
+import_parser = action_subparser.add_parser('import', help='Importer une entitÃ© selon des paramÃ¨tres')
+import_parser.add_argument('--file' , help='Nom du fichier importé')
 
 
 args = parser.parse_args()
@@ -148,3 +165,6 @@ if args.context == "movies":
             movieRating, 
             movieReleaseDate
         )
+    if args.action == "import":
+        csvFileName = args.file
+        importData(csvFileName)
