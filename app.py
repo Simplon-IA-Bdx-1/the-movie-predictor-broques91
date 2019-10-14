@@ -12,9 +12,7 @@ import argparse
 import csv
 
 def connectToDatabase():
-    return mysql.connector.connect(user='predictor', password='predictor',
-                              host='127.0.0.1',
-                              database='predictor')
+    return mysql.connector.connect(user='predictor', password='predictor', host='127.0.0.1', database='predictor')
 
 def disconnectDatabase(cnx):
     cnx.close()
@@ -50,8 +48,21 @@ def findAll(table):
     disconnectDatabase(cnx)
     return results
 
+
+def insertPeople(firstname, lastname):
+    cnx = connectToDatabase()
+    cursor = createCursor(cnx)
+    sql = "INSERT INTO people (firstname, lastname) VALUES (%s, %s)"
+    val = (firstname, lastname)
+    cursor.execute(sql, val)
+    cnx.commit()
+    closeCursor(cursor)
+    disconnectDatabase(cnx)
+
+
 def printPerson(person):
     print("#{}: {} {}".format(person['id'], person['firstname'], person['lastname']))
+
 
 def printMovie(movie):
     print("#{}: {} released on {}".format(movie['id'], movie['title'], movie['release_date']))
@@ -67,6 +78,11 @@ list_parser.add_argument('--export' , help='Chemin du fichier exportÃ©')
 
 find_parser = action_subparser.add_parser('find', help='Trouve une entitÃ© selon un paramÃ¨tre')
 find_parser.add_argument('id' , help='Identifant Ã  rechercher')
+
+insert_parser = action_subparser.add_parser('insert', help='Insérer une entitÃ© selon des paramÃ¨tres')
+insert_parser.add_argument('--firstname' ,help='Prénom')
+insert_parser.add_argument('--lastname', help='Nom')
+
 
 args = parser.parse_args()
 
@@ -87,6 +103,10 @@ if args.context == "people":
         people = find("people", peopleId)
         for person in people:
             printPerson(person)
+    if args.action == "insert":
+        peopleFirstname = args.firstname
+        peopleLastname = args.lastname
+        insertPeople(peopleFirstname, peopleLastname)
 
 if args.context == "movies":
     if args.action == "list":  

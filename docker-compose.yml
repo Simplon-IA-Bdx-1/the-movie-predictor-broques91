@@ -2,7 +2,7 @@ version: '3.7'
 
 services:
   database:
-    image: mysql:latest
+    image: mysql
     environment:
       - MYSQL_RANDOM_ROOT_PASSWORD=yes
       - MYSQL_USER=predictor
@@ -14,7 +14,7 @@ services:
       - 3306:3306
     volumes:
       - database_data:/var/lib/mysql
-    command: --default_authentication_plugin=mysql_native_password
+    command: --default-authentication-plugin=mysql_native_password
   adminer:
     image: dehy/adminer
     networks:
