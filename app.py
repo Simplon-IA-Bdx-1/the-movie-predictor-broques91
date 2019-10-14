@@ -56,6 +56,18 @@ def insertPeople(firstname, lastname):
     val = (firstname, lastname)
     cursor.execute(sql, val)
     cnx.commit()
+    print("People ajouté avec succès !")
+    closeCursor(cursor)
+    disconnectDatabase(cnx)
+
+def insertMovie(title, duration, original_title, rating, release_date):
+    cnx = connectToDatabase()
+    cursor = createCursor(cnx)
+    sql = "INSERT INTO movies (title, duration, original_title, rating, release_date) VALUES (%s, %s, %s, %s, %s)"
+    val = (title, duration, original_title, rating, release_date)
+    cursor.execute(sql, val)
+    cnx.commit()
+    print("Film ajouté avec succès !")
     closeCursor(cursor)
     disconnectDatabase(cnx)
 
@@ -82,6 +94,11 @@ find_parser.add_argument('id' , help='Identifant Ã  rechercher')
 insert_parser = action_subparser.add_parser('insert', help='Insérer une entitÃ© selon des paramÃ¨tres')
 insert_parser.add_argument('--firstname' ,help='Prénom')
 insert_parser.add_argument('--lastname', help='Nom')
+insert_parser.add_argument('--title', help='Titre')
+insert_parser.add_argument('--duration', help='Durée')
+insert_parser.add_argument('--original-title', help='Titre original')
+insert_parser.add_argument('--rating', help='Classification')
+insert_parser.add_argument('--release-date', help='Date de sortie')
 
 
 args = parser.parse_args()
@@ -118,3 +135,16 @@ if args.context == "movies":
         movies = find("movies", movieId)
         for movie in movies:
             printMovie(movie)
+    if args.action == "insert":
+        movieTitle = args.title
+        movieDuration = args.duration
+        movieOriginalTitle = args.original_title
+        movieRating = args.rating
+        movieReleaseDate = args.release_date
+        insertMovie(
+            movieTitle, 
+            movieDuration, 
+            movieOriginalTitle, 
+            movieRating, 
+            movieReleaseDate
+        )
