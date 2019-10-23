@@ -3,32 +3,89 @@
 
 """
 TheMoviePredictor script
-Author: Arnaud de Mouhy <arnaud@admds.net>
+Author: Bastien Roques <bastien.roques971@gmail.com>
 """
 
 import mysql.connector
 import sys
 import argparse
 import csv
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
+import locale
 
-def connectToDatabase():
+# Scrapper
+locale.setlocale(locale.LC_ALL, 'fr_FR')
+
+url = 'https://fr.wikipedia.org/wiki/Joker_(film,_2019)'
+page = requests.get(url)
+
+soup = BeautifulSoup(page.content, 'html.parser')
+
+fiche_technique = soup.find(id="Fiche_technique")
+
+h2_tag = fiche_technique.parent
+ul_tag = h2_tag.find_next_sibling('ul')
+li_tags = ul_tag.find_all('li')
+
+for li_tag in li_tags:
+    splitted_li = li_tag.get_text().split(':')
+    data_type = splitted_li[0].strip()
+    data_value = splitted_li[1].strip()
+
+    if data_type == "Titre original":
+        title = data_value
+    if data_type == "Durée":
+        duration = data_value.replace('minutes', '').strip()
+    if data_type == "Date de sortie":
+        release_dates_li_list = li_tag.find_all("li")
+        for release_date_li in release_dates_li_list:
+            release_date_splitted = release_date_li.get_text().split(':')
+            release_country = release_date_splitted[0].strip()
+            release_date_as_string = release_date_splitted[1].strip()
+            if release_country == "France":
+                release_date_object = datetime.strftime(release_date_as_string, '%d %B %Y')
+                release_date_sql_string = release_date_object.strftime('%Y-%m-%d')
+                # print('Sortie en France:', release_date_sql_string)          
+    if data_type == "Classification":
+        rating_li_list = li_tag.find_all("li")
+        for rating_li in rating_li_list:
+            rating_splitted = rating_li.get_text().split(':')
+            rating_country = rating_splitted[0].strip()
+            rating_string = rating_splitted[1].strip()
+            if rating_country == "France":
+                if rating_string.find('12') != -1:
+                    rating = '-12'
+                    
+print('title =', title)
+print('duration =', duration)
+print('release_date =', release_date_sql_string)
+print('rating =', rating)
+    
+exit()
+
+# Connect DB
+def connect_to_database():
     return mysql.connector.connect(user='predictor', password='predictor',
                               host='127.0.0.1',
                               database='predictor')
 
-def disconnectDatabase(cnx):
+# Disconnect BDD
+def disconnect_database(cnx):
     cnx.close()
 
-def createCursor(cnx):
+def create_cursor(cnx):
     return cnx.cursor(dictionary=True)
 
-def closeCursor(cursor):    
+def close_cursor(cursor):    
     cursor.close()
 
-def findQuery(table, id):
+# Query functions
+def find_query(table, id):
     return ("SELECT * FROM {} WHERE id = {}".format(table, id))
 
-def findAllQuery(table):
+def find_all_query(table):
     return ("SELECT * FROM {}".format(table))
 
 def insert_people_query(firstname, lastname):
@@ -37,52 +94,54 @@ def insert_people_query(firstname, lastname):
 def insert_movie_query(title, original_title, duration, rating, release_date):
     return (f"INSERT INTO `movies` (`title`, `original_title`, `duration`, `rating`, `release_date`) VALUES ('{title}', '{original_title}', {duration}, '{rating}', '{release_date}');")
 
-
+# Exec query functions
 def find(table, id):
-    cnx = connectToDatabase()
-    cursor = createCursor(cnx)
-    query = findQuery(table, id)
+    cnx = connect_to_database()
+    cursor = create_cursor(cnx)
+    query = find_query(table, id)
     cursor.execute(query)
     results = cursor.fetchall()
-    closeCursor(cursor)
-    disconnectDatabase(cnx)
+    close_cursor(cursor)
+    disconnect_database(cnx)
     return results
 
-def findAll(table):
-    cnx = connectToDatabase()
-    cursor = createCursor(cnx)
-    cursor.execute(findAllQuery(table))
+def find_all(table):
+    cnx = connect_to_database()
+    cursor = create_cursor(cnx)
+    cursor.execute(find_all_query(table))
     results = cursor.fetchall()
-    closeCursor(cursor)
-    disconnectDatabase(cnx)
+    close_cursor(cursor)
+    disconnect_database(cnx)
     return results
 
 def insert_people(firstname, lastname):
-    cnx = connectToDatabase()
-    cursor = createCursor(cnx)
+    cnx = connect_to_database()
+    cursor = create_cursor(cnx)
     cursor.execute(insert_people_query(firstname, lastname))
     cnx.commit()
     last_id = cursor.lastrowid
-    closeCursor(cursor)
-    disconnectDatabase(cnx)
+    close_cursor(cursor)
+    disconnect_database(cnx)
     return last_id
 
 def insert_movie(title, original_title, duration, rating, release_date):
-    cnx = connectToDatabase()
-    cursor = createCursor(cnx)
+    cnx = connect_to_database()
+    cursor = create_cursor(cnx)
     cursor.execute(insert_movie_query(title, original_title, duration, rating, release_date))
     cnx.commit()
     last_id = cursor.lastrowid
-    closeCursor(cursor)
-    disconnectDatabase(cnx)
+    close_cursor(cursor)
+    disconnect_database(cnx)
     return last_id
 
-def printPerson(person):
+# Print functions
+def print_person(person):
     print("#{}: {} {}".format(person['id'], person['firstname'], person['lastname']))
 
-def printMovie(movie):
+def print_movie(movie):
     print("#{}: {} released on {}".format(movie['id'], movie['title'], movie['release_date']))
 
+# Parser
 parser = argparse.ArgumentParser(description='Process MoviePredictor data')
 
 parser.add_argument('context', choices=('people', 'movies'), help='Le contexte dans lequel nous allons travailler')
@@ -112,13 +171,11 @@ if known_args.context == "movies":
     insert_parser.add_argument('--release-date' , help='Date de sortie en France', required=True)
     insert_parser.add_argument('--rating' , help='Classification du film', choices=('TP', '-12', '-16'), required=True)
 
-
-
 args = parser.parse_args()
 
 if args.context == "people":
     if args.action == "list":
-        people = findAll("people")
+        people = find_all("people")
         if args.export:
             with open(args.export, 'w', encoding='utf-8', newline='\n') as csvfile:
                 writer = csv.writer(csvfile)
@@ -127,12 +184,12 @@ if args.context == "people":
                     writer.writerow(person.values())
         else:
             for person in people:
-                printPerson(person)
+                print_person(person)
     if args.action == "find":
-        peopleId = args.id
-        people = find("people", peopleId)
+        people_id = args.id
+        people = find("people", people_id)
         for person in people:
-            printPerson(person)
+            print_person(person)
     if args.action == "insert":
         print(f"Insertion d'une nouvelle personne: {args.firstname} {args.lastname}")
         people_id = insert_people(firstname=args.firstname, lastname=args.lastname)
@@ -140,22 +197,22 @@ if args.context == "people":
 
 if args.context == "movies":
     if args.action == "list":  
-        movies = findAll("movies")
+        movies = find_all("movies")
         for movie in movies:
-            printMovie(movie)
+            print_movie(movie)
     if args.action == "find":  
-        movieId = args.id
-        movies = find("movies", movieId)
+        movie_id = args.id
+        movies = find("movies", movie_id)
         for movie in movies:
-            printMovie(movie)
+            print_movie(movie)
     if args.action == "insert":
         print(f"Insertion d'un nouveau film: {args.title}")
         movie_id = insert_movie(
-            title=args.title,
-            original_title=args.original_title,
-            duration=args.duration,
-            rating=args.rating,
-            release_date=args.release_date
+            title = args.title,
+            original_title = args.original_title,
+            duration = args.duration,
+            rating = args.rating,
+            release_date = args.release_date
         )
         print(f"Nouveau film inséré avec l'id '{movie_id}'")
     if args.action == "import":
@@ -163,10 +220,10 @@ if args.context == "movies":
             reader = csv.DictReader(csvfile)
             for row in reader:
                 movie_id = insert_movie(
-                    title=row['title'],
-                    original_title=row['original_title'],
-                    duration=row['duration'],
-                    rating=row['rating'],
-                    release_date=row['release_date']
+                    title = row['title'],
+                    original_title = row['original_title'],
+                    duration = row['duration'],
+                    rating = row['rating'],
+                    release_date = row['release_date']
                 )
                 print(f"Nouveau film inséré avec l'id '{movie_id}'")
