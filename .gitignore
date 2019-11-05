@@ -206,4 +206,7 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# Config file
+config.py
+
 # End of https://www.gitignore.io/api/vim,linux,macos,python,windows,visualstudiocode
