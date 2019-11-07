@@ -10,8 +10,10 @@ import mysql.connector
 import sys
 import argparse
 import csv
-import requests
 import locale
+import requests # to make TMDB API calls
+import config # to hide TMDB API keys
+import json
 from movie import Movie
 from person import Person
 from scrapper import Scrapper
@@ -205,9 +207,11 @@ find_parser.add_argument('id' , help='Identifant à rechercher')
 
 import_parser = action_subparser.add_parser('import', help='Importer un fichier CSV')
 import_parser.add_argument('--file', help='Chemin vers le fichier à importer', required=True)
+import_parser.add_argument('--api', help='API', choices=('tmdb', 'omdb') )
 
 insert_parser = action_subparser.add_parser('insert', help='Insert une nouvelle entité')
 known_args = parser.parse_known_args()[0]
+
 
 if known_args.context == "people":
     insert_parser.add_argument('--firstname' , help='Prénom de la nouvelle personne', required=True)
@@ -219,6 +223,8 @@ if known_args.context == "movies":
     insert_parser.add_argument('--original-title' , help='Titre original', required=True)
     insert_parser.add_argument('--release-date' , help='Date de sortie en France', required=True)
     insert_parser.add_argument('--rating' , help='Classification du film', choices=('TP', '-12', '-16'), required=True)
+    insert_parser.add_argument('--api' , help='Importer données depuis une API')
+    insert_parser.add_argument('--year' , help='Année de sortie des films importés',type=int, required=True)
 
 args = parser.parse_args()
 
