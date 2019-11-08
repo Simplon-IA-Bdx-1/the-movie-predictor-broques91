@@ -1,6 +1,7 @@
 class Movie:
 
-    def __init__(self, title, original_title, duration, release_date, rating):
+    def __init__(self, title, original_title, duration, rating, release_date):
+
         self.title = title
         self.original_title = original_title
         self.duration = duration
@@ -13,6 +14,9 @@ class Movie:
         self.is_3d = None
         self.marketing_budget = None
         self.production_budget = None
+
+    def __repr__(self):
+        return "#{}: {} released on {}".format(self.id, self.title, self.release_date)
 
     def total_budget(self):
         if self.production_budget == None and self.marketing_budget == None:

@@ -14,11 +14,16 @@ import locale
 import requests # to make TMDB API calls
 import config # to hide TMDB API keys
 import json
+import os
+
 from movie import Movie
 from person import Person
-from scrapper import Scrapper
+# from scrapper import Scrapper
 from bs4 import BeautifulSoup
 from datetime import datetime
+
+TMDB_API_KEY = config.tmdb_key # get TMDB API key from config.py file
+OMDB_API_KEY = config.omdb_key # get OMDB API key from config.py file
 
 # Scrapper
 # locale.setlocale(locale.LC_ALL, 'fr_FR')
@@ -72,6 +77,7 @@ from datetime import datetime
 
 # Connect DB
 def connect_to_database():
+    # password = os.environ[MYSQL_PASSWORD]
     return mysql.connector.connect(user='predictor', password='predictor',
                               host='127.0.0.1',
                               database='predictor')
@@ -164,7 +170,6 @@ def find_all(table):
             people.append(person)
         return people
 
-
 def insert_people(person):
     cnx = connect_to_database()
     cursor = create_cursor(cnx)
@@ -192,6 +197,81 @@ def print_person(person):
 def print_movie(movie):
     print("#{}: {} released on {}".format(movie.id, movie.title, movie.release_date))
 
+# API functions
+def get_imdb_id(query_api):
+    
+    base_url_omdb = 'http://www.omdbapi.com/?'
+    final_url_omdb = base_url_omdb + '&apikey=' + OMDB_API_KEY + '&s=' + query_api 
+    
+    request_omdb = requests.get(final_url_omdb)
+    data_omdb = request_omdb.json()
+
+    imdb_id = data_omdb['Search'][0]['imdbID']
+    return imdb_id
+
+def rating_clean(rating):
+    if rating == "G" or rating == "PG" or rating == "PG-13":
+        rating_fr = "TP"
+    elif rating == "NC-17" or rating == "R":
+        rating_fr = "-12"
+    else:
+        rating_fr = "-16"
+
+    return rating_fr
+
+    
+def get_movies_by_year(year):
+
+    url = 'https://api.themoviedb.org/3/discover/movie?api_key=' + TMDB_API_KEY
+    final_url = url + "&primary_release_year=" + str(year) + '&sort_by=revenue.desc'
+
+    req = requests.get(final_url)
+    data = req.json()
+
+    total_pages = 2
+
+    page = 0
+    while page < total_pages:
+
+        for item in data['results']:
+
+            try:
+                imdb_id = get_imdb_id(item['title'])
+
+                url_details = f'https://api.themoviedb.org/3/movie/{imdb_id}?api_key=' + TMDB_API_KEY + '&language=fr'
+                url_omdb_details = f'http://www.omdbapi.com/?i={imdb_id}&apikey=' + OMDB_API_KEY
+
+                print(url_details)
+                print(url_omdb_details)
+                        
+                r = requests.get(url_details)
+                r_omdb = requests.get(url_omdb_details)
+
+                details = r.json()
+                details_omdb = r_omdb.json()
+
+                movie_id = insert_movie(
+                    Movie(
+                        title = details['title'],
+                        original_title = details['original_title'],
+                        duration = details['runtime'],
+                        rating = rating_clean(details_omdb['Rated']),
+                        release_date = details['release_date']
+                        # print(f"Budget: {details['budget']}")
+                        # print(f"Bénéfices: {details['revenue']}")
+                        # print(f"Synopsis: {details['overview']}")
+                    )
+                )
+                print(f"Nouveau film inséré avec l'id {movie_id}")
+    
+            except KeyError:
+                print('Cannot find "movie data"')
+                print("\n")
+    
+        page += 1
+
+
+
 # Parser
 parser = argparse.ArgumentParser(description='Process MoviePredictor data')
 
@@ -200,31 +280,29 @@ parser.add_argument('context', choices=('people', 'movies'), help='Le contexte d
 action_subparser = parser.add_subparsers(title='action', dest='action')
 
 list_parser = action_subparser.add_parser('list', help='Liste les entitées du contexte')
-list_parser.add_argument('--export' , help='Chemin du fichier exporté')
+list_parser.add_argument('--export', help='Chemin du fichier exporté')
 
 find_parser = action_subparser.add_parser('find', help='Trouve une entité selon un paramètre')
-find_parser.add_argument('id' , help='Identifant à rechercher')
+find_parser.add_argument('id', help='Identifant à rechercher')
 
 import_parser = action_subparser.add_parser('import', help='Importer un fichier CSV')
-import_parser.add_argument('--file', help='Chemin vers le fichier à importer', required=True)
-import_parser.add_argument('--api', help='API', choices=('tmdb', 'omdb') )
+import_parser.add_argument('--file', help='Chemin vers le fichier à importer')
+import_parser.add_argument('--api', help='Import depuis API', choices=('all') )
+import_parser.add_argument('--year', help='Année de sortie des films importés', type=int)
 
 insert_parser = action_subparser.add_parser('insert', help='Insert une nouvelle entité')
 known_args = parser.parse_known_args()[0]
 
-
 if known_args.context == "people":
-    insert_parser.add_argument('--firstname' , help='Prénom de la nouvelle personne', required=True)
-    insert_parser.add_argument('--lastname' , help='Nom de la nouvelle personne', required=True)
+    insert_parser.add_argument('--firstname', help='Prénom de la nouvelle personne', required=True)
+    insert_parser.add_argument('--lastname', help='Nom de la nouvelle personne', required=True)
 
 if known_args.context == "movies":
-    insert_parser.add_argument('--title' , help='Titre en France', required=True)
-    insert_parser.add_argument('--duration' , help='Durée du film', type=int, required=True)
-    insert_parser.add_argument('--original-title' , help='Titre original', required=True)
-    insert_parser.add_argument('--release-date' , help='Date de sortie en France', required=True)
-    insert_parser.add_argument('--rating' , help='Classification du film', choices=('TP', '-12', '-16'), required=True)
-    insert_parser.add_argument('--api' , help='Importer données depuis une API')
-    insert_parser.add_argument('--year' , help='Année de sortie des films importés',type=int, required=True)
+    insert_parser.add_argument('--title', help='Titre en France', required=True)
+    insert_parser.add_argument('--duration', help='Durée du film', type=int, required=True)
+    insert_parser.add_argument('--original-title', help='Titre original', required=True)
+    insert_parser.add_argument('--release-date', help='Date de sortie en France', required=True)
+    insert_parser.add_argument('--rating', help='Classification du film', choices=('TP', '-12', '-16'), required=True)
 
 args = parser.parse_args()
 
@@ -266,7 +344,7 @@ if args.context == "movies":
     if args.action == "list":  
         movies = find_all("movies")
         for movie in movies:
-            print_movie(movie)
+            print(movie)
 
     if args.action == "find":  
         movie_id = args.id
@@ -274,7 +352,7 @@ if args.context == "movies":
         if (movie == None):
             print(f"Aucun film n'a été trouvé avec l'id {movie_id}")
         else:
-            print_movie(movie)
+            print(movie)
 
     if args.action == "insert":
         print(f"Insertion d'un nouveau film: {args.title}")
@@ -289,14 +367,20 @@ if args.context == "movies":
         print(f"Nouveau film inséré avec l'id {movie_id}")
 
     if args.action == "import":
-        with open(args.file, 'r', encoding='utf-8', newline='\n') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                movie_id = insert_movie(
-                    title = row['title'],
-                    original_title = row['original_title'],
-                    duration = row['duration'],
-                    rating = row['rating'],
-                    release_date = row['release_date']
-                )
-                print(f"Nouveau film inséré avec l'id {movie_id}")
+
+        if args.file:
+            with open(args.file, 'r', encoding='utf-8', newline='\n') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    movie_id = insert_movie(
+                        title = row['title'],
+                        original_title = row['original_title'],
+                        duration = row['duration'],
+                        rating = row['rating'],
+                        release_date = row['release_date']
+                    )
+                    print(f"Nouveau film inséré avec l'id {movie_id}")
+
+        if args.api:
+            get_movies_by_year(args.year)
+          

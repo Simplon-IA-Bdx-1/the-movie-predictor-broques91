@@ -3,63 +3,32 @@ import config # to hide API keys
 import json
 from movie import Movie
 
-api_key = config.tmdb_key # get TMDB API key from config.py file
-omdb_key = config.omdb_key # get OMDB API key from config.py file
+TMDB_API_KEY = config.tmdb_key # get TMDB API key from config.py file
+OMDB_API_KEY = config.omdb_key # get OMDB API key from config.py file
 
-def movie_search(query):
-    url = 'https://api.themoviedb.org/3/search/movie?api_key=' + api_key + '&language=fr'
-    title = query.replace(' ', '+')
 
-    final_url_tmdb = url + "&query=" + title
-    final_url_omdb = 'http://www.omdbapi.com/?s=' + title + '?&apikey=' + omdb_key + '&language=fr'
+def get_imdb_id(movie_title):
     
-    # Requests
-    r_tmdb = requests.get(final_url_tmdb)
-    r_omdb = requests.get(final_url_omdb)
-
-    # Convert data to JSON
-    data_tmdb = r_tmdb.json()
-    data_omdb = r_omdb.json()
-
-    # Import data from OMDB API
-    for item in data_omdb['Search']:
-        imdb_id = item['imdbID']
-
-        if item['Title'] == title:
-            url_omdb_details = f'http://www.omdbapi.com/?i={imdb_id}&apikey=' + omdb_key
-            print(url_omdb_details)
-            r_omdb = requests.get(url_omdb_details)
-            details_omdb = r_omdb.json()
-            #print(details_omdb)
-            
-    # Import data from TMDB API
-    for item in data_tmdb['results']:
-        imdb_id = item['id']
-
-        if item['title'] == title:
-            url_tmdb_details = f'https://api.themoviedb.org/3/movie/{imdb_id}?api_key=' + api_key + '&language=fr'
-            print(url_tmdb_details)
-            r_tmdb = requests.get(url_tmdb_details)
-            details_tmdb = r_tmdb.json()
-
-    print(f"Titre: {details_tmdb['title']}")
-    print(f"Titre original: {details_tmdb['original_title']}")
-    print(f"Durée: {details_tmdb['runtime']}")
-    print(f"Rating: {details_omdb['Rated']}")
-    print(f"Date de sortie: {details_tmdb['release_date']}")
-    print(f"Bénéfices: {details_tmdb['revenue']}")
-    print(f"Budget: {details_tmdb['budget']}")
-    print(f"Synopsis: {details_tmdb['overview']}")
+    base_url_omdb = 'http://www.omdbapi.com/?'
+    final_url_omdb = base_url_omdb + '&apikey=' + OMDB_API_KEY + '&s=' + movie_title 
     
+    request_omdb = requests.get(final_url_omdb)
+    data_omdb = request_omdb.json()
 
-def movie_search_year(year):
-    url = 'https://api.themoviedb.org/3/discover/movie?api_key=' + api_key + '&language=fr'
-    final_url = url + "&primary_release_year=" + year + '&sort_by=revenue.desc'
-    print(final_url)
+    print(f"IMDB ID: {data_omdb['Search'][0]['imdbID']}")
+    imdb_id = data_omdb['Search'][0]['imdbID']
+    return imdb_id
+
+    
+def get_movies_by_year(year):
+
+    url = 'https://api.themoviedb.org/3/discover/movie?api_key=' + TMDB_API_KEY
+    final_url = url + "&primary_release_year=" + str(year) + '&sort_by=revenue.desc'
+    # print(final_url)
     req = requests.get(final_url)
     data = req.json()
     #print(data)
-    total_pages = 3
+    total_pages = data['total_pages']
     #print(total_pages)
 
     page = 0
@@ -67,23 +36,42 @@ def movie_search_year(year):
 
         for item in data['results']:
 
-            movie_id = item['id']
-            url_details = f'https://api.themoviedb.org/3/movie/{movie_id}?api_key=' + api_key + '&language=fr'
-                    
-            r = requests.get(url_details)
-            details = r.json()
-            print(f"Titre: {details['title']}")
-            print(f"Titre original: {details['original_title']}")
-            print(f"Durée: {details['runtime']}")
-            print(f"Date de sortie: {details['release_date']}")
-            print(f"Bénéfices: {details['revenue']}")
-            print(f"Synopsis: {details['overview']}")
-            print("\n")
-        
+            try:
+                imdb_id = get_imdb_id(item['title'])
+
+                url_details = f'https://api.themoviedb.org/3/movie/{imdb_id}?api_key=' + TMDB_API_KEY + '&language=fr'
+                url_omdb_details = f'http://www.omdbapi.com/?i={imdb_id}&apikey=' + OMDB_API_KEY
+                
+                print(url_details)
+                print(url_omdb_details)
+                        
+                r = requests.get(url_details)
+                r_omdb = requests.get(url_omdb_details)
+
+                details = r.json()
+                details_omdb = r_omdb.json()
+
+                print(f"Titre: {details['title']}")
+                print(f"Titre original: {details['original_title']}")
+                print(f"Durée: {details['runtime']}")
+                print(f"Rating: {details_omdb['Rated']}")
+                print(f"Date de sortie: {details['release_date']}")
+                print(f"Budget: {details['budget']}")
+                print(f"Bénéfices: {details['revenue']}")
+                print(f"Synopsis: {details['overview']}")
+                print("\n")
+
+            
+            except KeyError:
+                print('Cannot find "movie data"')
+                print("\n")
+    
         page += 1
             
-movie_search('Ted')
+# movie_search('')
 
-#movie_search_year('2018')
+get_movies_by_year(2019)
+
+# get_imdb_id()
 
 
