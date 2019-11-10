@@ -9,11 +9,13 @@ class Movie:
         self.rating = rating
 
         self.id = None
+        self.synopsis = None
         self.actor = []
         self.producer = []
         self.is_3d = None
         self.marketing_budget = None
         self.production_budget = None
+        self.imdb_id = None
 
     def __repr__(self):
         return "#{}: {} released on {}".format(self.id, self.title, self.release_date)

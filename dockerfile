@@ -1,5 +1,5 @@
 # Image de base
-FROM python:3.7-buster
+FROM python:3.7-alpine
 
 # Installation de packages avec pip install
 RUN pip install argparse mysql-connector-python beautifulsoup4 requests

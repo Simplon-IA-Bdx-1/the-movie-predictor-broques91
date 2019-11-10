@@ -11,266 +11,22 @@ import sys
 import argparse
 import csv
 import locale
-import requests # to make TMDB API calls
-import config # to hide TMDB API keys
+import requests
+import config
 import json
 import os
 
+from database import Database
 from movie import Movie
 from person import Person
-# from scrapper import Scrapper
+from moviefactory import MovieFactory
+from peoplefactory import PeopleFactory
+from moviedb import MovieDatabase
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-TMDB_API_KEY = config.tmdb_key # get TMDB API key from config.py file
-OMDB_API_KEY = config.omdb_key # get OMDB API key from config.py file
-
-# Scrapper
-# locale.setlocale(locale.LC_ALL, 'fr_FR')
-
-# url = 'https://fr.wikipedia.org/wiki/Joker_(film,_2019)'
-# page = requests.get(url)
-
-# soup = BeautifulSoup(page.content, 'html.parser')
-
-# fiche_technique = soup.find(id="Fiche_technique")
-
-# h2_tag = fiche_technique.parent
-# ul_tag = h2_tag.find_next_sibling('ul')
-# li_tags = ul_tag.find_all('li')
-
-# for li_tag in li_tags:
-#     splitted_li = li_tag.get_text().split(':')
-#     data_type = splitted_li[0].strip()
-#     data_value = splitted_li[1].strip()
-
-#     if data_type == "Titre original":
-#         title = data_value
-#     if data_type == "Durée":
-#         duration = data_value.replace('minutes', '').strip()
-#     if data_type == "Date de sortie":
-#         release_dates_li_list = li_tag.find_all("li")
-#         for release_date_li in release_dates_li_list:
-#             release_date_splitted = release_date_li.get_text().split(':')
-#             release_country = release_date_splitted[0].strip()
-#             release_date_as_string = release_date_splitted[1].strip()
-#             if release_country == "France":
-#                 release_date_object = datetime.strftime(release_date_as_string, '%d %B %Y')
-#                 release_date_sql_string = release_date_object.strftime('%Y-%m-%d')
-#                 # print('Sortie en France:', release_date_sql_string)          
-#     if data_type == "Classification":
-#         rating_li_list = li_tag.find_all("li")
-#         for rating_li in rating_li_list:
-#             rating_splitted = rating_li.get_text().split(':')
-#             rating_country = rating_splitted[0].strip()
-#             rating_string = rating_splitted[1].strip()
-#             if rating_country == "France":
-#                 if rating_string.find('12') != -1:
-#                     rating = '-12'
-                    
-# print('title =', title)
-# print('duration =', duration)
-# print('release_date =', release_date_sql_string)
-# print('rating =', rating)
-    
-# exit()
-
-# Connect DB
-def connect_to_database():
-    # password = os.environ[MYSQL_PASSWORD]
-    return mysql.connector.connect(user='predictor', password='predictor',
-                              host='127.0.0.1',
-                              database='predictor')
-
-# Disconnect BDD
-def disconnect_database(cnx):
-    cnx.close()
-
-def create_cursor(cnx):
-    return cnx.cursor(dictionary=True)
-
-def close_cursor(cursor):    
-    cursor.close()
-
-# Query functions
-def find_query(table, id):
-    return ("SELECT * FROM {} WHERE id = {} LIMIT 1".format(table, id))
-
-def find_all_query(table):
-    return ("SELECT * FROM {}".format(table))
-
-def insert_people_query(person):
-    return (f"INSERT INTO `people` (`firstname`, `lastname`) VALUES ('{person.firstname}', '{person.lastname}');")
-
-def insert_movie_query(movie):
-    return (f"INSERT INTO `movies` (`title`, `original_title`, `duration`, `rating`, `release_date`) VALUES ('{movie.title}', '{movie.original_title}', {movie.duration}, '{movie.rating}', '{movie.release_date}');")
-
-# Execute query functions
-def find(table, id):
-    cnx = connect_to_database()
-    cursor = create_cursor(cnx)
-    query = find_query(table, id)
-    cursor.execute(query)
-    results = cursor.fetchall()
-    
-    entity = None
-    if (cursor.rowcount == 1):
-        row = results[0]
-        if (table == "movies"):
-            entity = Movie(
-                row['title'],
-                row['original_title'],
-                row['duration'],
-                row['rating'],
-                row['release_date']
-            )
-            entity.id = row['id']
-
-        if (table == "people"):
-            entity = Person(
-                row['firstname'],
-                row['lastname']
-            )
-            entity.id = row['id']
-
-    close_cursor(cursor)
-    disconnect_database(cnx)
-
-    return entity
-
-def find_all(table):
-    cnx = connect_to_database()
-    cursor = create_cursor(cnx)
-    cursor.execute(find_all_query(table))
-    results = cursor.fetchall() # liste de données scalaires
-    close_cursor(cursor)
-    disconnect_database(cnx)
-    if (table == 'movies'):
-        movies = []
-        for result in results: #result: dictionnaire
-            movie = Movie(
-                title = result['title'],
-                original_title = result['original_title'],
-                duration = result['duration'],
-                rating = result['rating'],
-                release_date = result['release_date']
-            )
-            movie.id = result['id']
-            movies.append(movie)
-        return movies
-
-    if (table == 'people'):
-        people = []
-        for result in results: #result: dictionnaire
-            person = Person(
-                firstname = result['firstname'],
-                lastname = result['lastname'],
-            )
-            person.id = result['id']
-            people.append(person)
-        return people
-
-def insert_people(person):
-    cnx = connect_to_database()
-    cursor = create_cursor(cnx)
-    cursor.execute(insert_people_query(person))
-    cnx.commit()
-    last_id = cursor.lastrowid
-    close_cursor(cursor)
-    disconnect_database(cnx)
-    return last_id
-
-def insert_movie(movie):
-    cnx = connect_to_database()
-    cursor = create_cursor(cnx)
-    cursor.execute(insert_movie_query(movie))
-    cnx.commit()
-    last_id = cursor.lastrowid
-    close_cursor(cursor)
-    disconnect_database(cnx)
-    return last_id
-
-# Print functions
-def print_person(person):
-    print("#{}: {} {}".format(person.id, person.firstname, person.lastname))
-
-def print_movie(movie):
-    print("#{}: {} released on {}".format(movie.id, movie.title, movie.release_date))
-
-# API functions
-def get_imdb_id(query_api):
-    
-    base_url_omdb = 'http://www.omdbapi.com/?'
-    final_url_omdb = base_url_omdb + '&apikey=' + OMDB_API_KEY + '&s=' + query_api 
-    
-    request_omdb = requests.get(final_url_omdb)
-    data_omdb = request_omdb.json()
-
-    imdb_id = data_omdb['Search'][0]['imdbID']
-    return imdb_id
-
-def rating_clean(rating):
-    if rating == "G" or rating == "PG" or rating == "PG-13":
-        rating_fr = "TP"
-    elif rating == "NC-17" or rating == "R":
-        rating_fr = "-12"
-    else:
-        rating_fr = "-16"
-
-    return rating_fr
-
-    
-def get_movies_by_year(year):
-
-    url = 'https://api.themoviedb.org/3/discover/movie?api_key=' + TMDB_API_KEY
-    final_url = url + "&primary_release_year=" + str(year) + '&sort_by=revenue.desc'
-
-    req = requests.get(final_url)
-    data = req.json()
-
-    total_pages = 2
-
-    page = 0
-    while page < total_pages:
-
-        for item in data['results']:
-
-            try:
-                imdb_id = get_imdb_id(item['title'])
-
-                url_details = f'https://api.themoviedb.org/3/movie/{imdb_id}?api_key=' + TMDB_API_KEY + '&language=fr'
-                url_omdb_details = f'http://www.omdbapi.com/?i={imdb_id}&apikey=' + OMDB_API_KEY
-
-                print(url_details)
-                print(url_omdb_details)
-                        
-                r = requests.get(url_details)
-                r_omdb = requests.get(url_omdb_details)
-
-                details = r.json()
-                details_omdb = r_omdb.json()
-
-                movie_id = insert_movie(
-                    Movie(
-                        title = details['title'],
-                        original_title = details['original_title'],
-                        duration = details['runtime'],
-                        rating = rating_clean(details_omdb['Rated']),
-                        release_date = details['release_date']
-                        # print(f"Budget: {details['budget']}")
-                        # print(f"Bénéfices: {details['revenue']}")
-                        # print(f"Synopsis: {details['overview']}")
-                    )
-                )
-                print(f"Nouveau film inséré avec l'id {movie_id}")
-    
-            except KeyError:
-                print('Cannot find "movie data"')
-                print("\n")
-    
-        page += 1
-
-
+TMDB_API_KEY = os.environ.get('TMDB_API_KEY')
+OMDB_API_KEY = os.environ.get('OMDB_API_KEY')
 
 # Parser
 parser = argparse.ArgumentParser(description='Process MoviePredictor data')
@@ -283,12 +39,17 @@ list_parser = action_subparser.add_parser('list', help='Liste les entitées du c
 list_parser.add_argument('--export', help='Chemin du fichier exporté')
 
 find_parser = action_subparser.add_parser('find', help='Trouve une entité selon un paramètre')
-find_parser.add_argument('id', help='Identifant à rechercher')
+find_parser.add_argument('--id', help='Identifant à rechercher dans la base de données', type=int)
+find_parser.add_argument('--imdb_id', help='Identifiant IMDB à rechercher dans la base de données')
 
-import_parser = action_subparser.add_parser('import', help='Importer un fichier CSV')
+search_parser = action_subparser.add_parser('search', help='Trouve une entité selon un paramètre')
+search_parser.add_argument('--imdb', help='Trouver IMDB ID depuis API')
+
+import_parser = action_subparser.add_parser('import', help='Importer un fichier ou des données')
 import_parser.add_argument('--file', help='Chemin vers le fichier à importer')
 import_parser.add_argument('--api', help='Import depuis API', choices=('all') )
 import_parser.add_argument('--year', help='Année de sortie des films importés', type=int)
+import_parser.add_argument('--rand', help='Importés de films de films aléatoire ', type=int)
 
 insert_parser = action_subparser.add_parser('insert', help='Insert une nouvelle entité')
 known_args = parser.parse_known_args()[0]
@@ -299,8 +60,8 @@ if known_args.context == "people":
 
 if known_args.context == "movies":
     insert_parser.add_argument('--title', help='Titre en France', required=True)
-    insert_parser.add_argument('--duration', help='Durée du film', type=int, required=True)
     insert_parser.add_argument('--original-title', help='Titre original', required=True)
+    insert_parser.add_argument('--duration', help='Durée du film', type=int, required=True)
     insert_parser.add_argument('--release-date', help='Date de sortie en France', required=True)
     insert_parser.add_argument('--rating', help='Classification du film', choices=('TP', '-12', '-16'), required=True)
 
@@ -310,7 +71,7 @@ args = parser.parse_args()
 if args.context == "people":
 
     if args.action == "list":
-        people = find_all("people")
+        people = PeopleFactory().find_all()
         if args.export:
             with open(args.export, 'w', encoding='utf-8', newline='\n') as csvfile:
                 writer = csv.writer(csvfile)
@@ -319,15 +80,15 @@ if args.context == "people":
                     writer.writerow(person.__dict__.values())
         else:
             for person in people:
-                print_person(person)
+                Person().__repr__(person)
 
     if args.action == "find":
         person_id = args.id
-        person = find("people", person_id)
+        person = PeopleFactory().find_one_by_id(person_id)
         if (person == None):
             print(f"Aucun people n'a été trouvé avec l'id {person_id}")
         else:
-            print_person(person)
+            Person().__repr__(person)
 
     if args.action == "insert":
         print(f"Insertion d'une nouvelle personne: {args.firstname} {args.lastname}")
@@ -335,35 +96,47 @@ if args.context == "people":
             args.firstname,
             args.lastname
         )
-        person_id = insert_people(person)
+        person_id = PeopleFactory().insert(person)
         print(f"Nouvelle personne insérée avec l'id {person_id}")
 
 # Movies actions
 if args.context == "movies":
 
     if args.action == "list":  
-        movies = find_all("movies")
+        movies = MovieFactory().find_all()
         for movie in movies:
             print(movie)
 
-    if args.action == "find":  
-        movie_id = args.id
-        movie = find("movies", movie_id)
-        if (movie == None):
-            print(f"Aucun film n'a été trouvé avec l'id {movie_id}")
-        else:
-            print(movie)
+    if args.action == "find":
+        if args.id:
+            movie_id = args.id
+            movie = MovieFactory().find_one_by_id(movie_id)
+            if (movie == None):
+                print(f"Aucun film n'a été trouvé avec l'id {movie_id}")
+            else:
+                print(movie)
+
+        
+    if args.action == "search":
+        if args.imdb:
+            movie_query = args.imdb
+            movie_imdb = MovieDatabase(TMDB_API_KEY, OMDB_API_KEY).get_imdb_id(movie_query)
+           
+            if (movie_imdb == None):
+                print(f"Aucun Imdb ID n'a été trouvé pour ce film : {movie_query}")
+            else:
+                print(movie_imdb)
 
     if args.action == "insert":
         print(f"Insertion d'un nouveau film: {args.title}")
         movie = Movie(
-            args.title,
-            args.original_title,
-            args.duration,
-            args.rating,
-            args.release_date
+            title = args.title,
+            original_title = args.original_title,
+            duration = args.duration,
+            rating = args.rating,
+            release_data = args.release_date
         )      
-        movie_id = insert_movie(movie)
+        movie_id = MovieFactory().insert(movie)
         print(f"Nouveau film inséré avec l'id {movie_id}")
 
     if args.action == "import":
@@ -372,15 +145,16 @@ if args.context == "movies":
             with open(args.file, 'r', encoding='utf-8', newline='\n') as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
-                    movie_id = insert_movie(
+                    movie_id = Movie(
                         title = row['title'],
                         original_title = row['original_title'],
                         duration = row['duration'],
                         rating = row['rating'],
                         release_date = row['release_date']
                     )
+                    MovieFactory().insert(movie_id)
                     print(f"Nouveau film inséré avec l'id {movie_id}")
 
         if args.api:
-            get_movies_by_year(args.year)
+            MovieDatabase().get_movies_by_year(args.year)
           
