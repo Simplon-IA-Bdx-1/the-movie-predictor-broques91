@@ -1,5 +1,6 @@
 import requests # to make API calls
 import config # to hide API keys
+import random
 import json
 import os
 
@@ -20,13 +21,20 @@ class MovieDatabase:
         """
         base_url_omdb = 'http://www.omdbapi.com/?'
         final_url_omdb = base_url_omdb + '&apikey=' + self.omdb_api_key + '&s=' + query 
+        # print(final_url_omdb)
         
         request_omdb = requests.get(final_url_omdb)
-        data_omdb = request_omdb.json()
-
-        title = data_omdb['Search'][0]['Title']
-        imdb_id = data_omdb['Search'][0]['imdbID']
-        return title, imdb_id
+        response = request_omdb.status_code
+        if response == 200:
+            data_omdb = request_omdb.json()
+            if data_omdb['Response'] == "True":
+                # print(f"IMDB ID: {data_omdb['Search'][0]['imdbID']}")
+                result = data_omdb['Search'][0]['imdbID']
+            else:
+                result = "IMDb ID not found"
+        else:
+            print("Request failed")
+        return result
 
     def rating_movies(self, rating):
         if rating == "G" or rating == "PG" or rating == "PG-13":
@@ -37,6 +45,65 @@ class MovieDatabase:
             rating_fr = "-16"
 
         return rating_fr
+
+    def get_random_movie(self):
+
+        url = 'https://api.themoviedb.org/3/movie/latest?api_key=' + self.tmdb_api_key
+        req_prepare = requests.get(url)
+        data_prepare = req_prepare.json()
+        latest_id = data_prepare['id']
+
+        response = None
+        
+        while response != 200:
+
+            random_id = random.randrange(latest_id)
+            final_url = f'https://api.themoviedb.org/3/movie/{random_id}?api_key=' + self.tmdb_api_key
+            req = requests.get(final_url)
+            response = req.status_code
+
+            if response == 404:
+                continue
+
+            data = req.json()
+            print(final_url)
+
+            imdb_id = self.get_imdb_id(data['title'])
+            print(imdb_id)
+
+            if imdb_id == "IMDb ID not found" or imdb_id == None:
+                continue
+
+            url_tmdb_details = f'https://api.themoviedb.org/3/movie/{imdb_id}?api_key=' + self.tmdb_api_key + '&language=fr'
+            url_omdb_details = f'http://www.omdbapi.com/?i={imdb_id}&apikey=' + self.omdb_api_key
+
+            print(url_tmdb_details)
+            print(url_omdb_details)
+                    
+            r_tmdb = requests.get(url_tmdb_details)
+            r_omdb = requests.get(url_omdb_details)
+
+            details_tmdb = r_tmdb.json()
+            details_omdb = r_omdb.json()
+
+            movie_id = MovieFactory().insert(
+                        Movie(
+                            title = details_tmdb['title'],
+                            original_title = details_tmdb['original_title'],
+                            synopsis = details_tmdb['overview'],
+                            duration = details_tmdb['runtime'],
+                            rating = self.rating_movies(details_omdb['Rated']),
+                            release_date = details_tmdb['release_date'],
+                            imdb_id = details_tmdb['imdb_id']
+                            # print(f"Budget: {details['budget']}")
+                            # print(f"Bénéfices: {details['revenue']}")
+                            # print(f"Synopsis: {details['overview']}")
+                        )
+                    )
+            print(f"Nouveau film '{details_tmdb['title']}' inséré avec l'id {movie_id}")
+
+            if response == 200: 
+                break
 
     def get_movies_by_year(self, year):
 

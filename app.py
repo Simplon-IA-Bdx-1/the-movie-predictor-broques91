@@ -49,7 +49,7 @@ import_parser = action_subparser.add_parser('import', help='Importer un fichier 
 import_parser.add_argument('--file', help='Chemin vers le fichier à importer')
 import_parser.add_argument('--api', help='Import depuis API', choices=('all') )
 import_parser.add_argument('--year', help='Année de sortie des films importés', type=int)
-import_parser.add_argument('--rand', help='Importés de films de films aléatoire ', type=int)
+import_parser.add_argument('random', help='Importés de films de films aléatoire')
 
 insert_parser = action_subparser.add_parser('insert', help='Insert une nouvelle entité')
 known_args = parser.parse_known_args()[0]
@@ -156,5 +156,8 @@ if args.context == "movies":
                     print(f"Nouveau film inséré avec l'id {movie_id}")
 
         if args.api:
-            MovieDatabase().get_movies_by_year(args.year)
+            if args.year:
+                MovieDatabase().get_movies_by_year(args.year)
+            if args.random:
+                MovieDatabase(TMDB_API_KEY, OMDB_API_KEY).get_random_movie()
           
