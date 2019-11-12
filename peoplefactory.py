@@ -6,7 +6,9 @@ class PeopleFactory(Database):
     def insert(self, person):
         cnx = self.connect_to_database()
         cursor = self.create_cursor()
-        stmt = ("INSERT INTO people (`firstname`, `lastname`) VALUES (%s, %s, )")
+        stmt = ("INSERT INTO people "
+                "(firstname, lastname)" 
+                "VALUES (%s, %s)")
         person_details = (
             person.firstname,
             person.lastname,       
@@ -21,7 +23,7 @@ class PeopleFactory(Database):
     def find_one_by_fullname(self, person):
         cnx = self.connect_to_database()
         cursor = self.create_cursor()
-        stmt = ("SELECT * FROM people where firstname = {} and lastname = {} LIMIT 1".format(person.firstname, person.lastname))
+        stmt = ("SELECT * FROM people WHERE firstname = {} and lastname = {} LIMIT 1".format(person.firstname, person.lastname))
         cursor.execute(stmt)
         results = cursor.fetchall()
         self.close_cursor()
@@ -31,7 +33,7 @@ class PeopleFactory(Database):
     def find_one_by_id(self, id):
         cnx = self.connect_to_database()
         cursor = self.create_cursor()
-        stmt = (f"SELECT * FROM people where `id`={id}")
+        stmt = ("SELECT * FROM people WHERE id = {}".format(id))
         cursor.execute(stmt)
         result = cursor.fetchall()
         self.close_cursor(cursor)

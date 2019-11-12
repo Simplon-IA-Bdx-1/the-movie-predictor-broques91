@@ -2,7 +2,7 @@
 FROM python:3.7-alpine
 
 # Installation de packages avec pip install
-RUN pip install argparse mysql-connector-python beautifulsoup4 requests
+RUN pip3 install argparse mysql-connector-python beautifulsoup4 requests
 
 # Ajout du repertoire courant
 COPY . /usr/src/themoviepredictor

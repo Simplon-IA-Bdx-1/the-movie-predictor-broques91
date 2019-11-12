@@ -10,10 +10,9 @@ class Movie:
         self.release_date = release_date
         self.imdb_id = imdb_id
 
-
         self.id = None
         self.actor = []
-        self.producer = []
+        self.writer = []
         self.is_3d = None
         self.marketing_budget = None
         self.production_budget = None

@@ -6,7 +6,9 @@ class MovieFactory(Database):
     def insert(self, movie):
         cnx = self.connect_to_database()
         cursor = self.create_cursor()
-        stmt = ("INSERT INTO movies (`title`, `original_title`, `synopsis`, `duration`, `rating`, `release_date`, `imdb_id`) VALUES (%s, %s, %s, %s, %s, %s, %s)")
+        stmt = ("INSERT INTO movies "
+                "(title, original_title, synopsis, duration, rating, release_date, imdb_id)" 
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)")
         movie_details = (
             movie.title,
             movie.original_title,
@@ -26,7 +28,7 @@ class MovieFactory(Database):
     def find_one_by_id(self, id):
         cnx = self.connect_to_database()
         cursor = self.create_cursor()
-        stmt = ("SELECT * FROM movies where id = {} LIMIT 1".format(id))
+        stmt = ("SELECT * FROM movies WHERE id = {} LIMIT 1".format(id))
         cursor.execute(stmt)
         results = cursor.fetchall()
         movie = None 
@@ -49,7 +51,7 @@ class MovieFactory(Database):
     def find__one_by_imdb_id(self, imdb_id):
         cnx = self.connect_to_database()
         cursor = self.create_cursor()
-        stmt = (f"SELECT * FROM movies where `imdb_id`={imdb_id}")
+        stmt = ("SELECT * FROM movies WHERE imdb_id = {}".format(imdb_id))
         cursor.execute(stmt)
         result = cursor.fetchall()
         self.close_cursor(cursor)

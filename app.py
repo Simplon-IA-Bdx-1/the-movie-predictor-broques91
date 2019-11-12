@@ -21,6 +21,7 @@ from movie import Movie
 from person import Person
 from moviefactory import MovieFactory
 from peoplefactory import PeopleFactory
+from scrapper import ScrapperWikipedia
 from moviedb import MovieDatabase
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -44,6 +45,9 @@ find_parser.add_argument('--imdb_id', help='Identifiant IMDB à rechercher dans 
 
 search_parser = action_subparser.add_parser('search', help='Trouve une entité selon un paramètre')
 search_parser.add_argument('--imdb', help='Trouver IMDB ID depuis API')
+
+scrapper_parser = action_subparser.add_parser('scrapper', help='Trouve une entité selon un paramètre')
+scrapper_parser.add_argument('--url', help='Trouver IMDB ID depuis API')
 
 import_parser = action_subparser.add_parser('import', help='Importer un fichier ou des données')
 import_parser.add_argument('--file', help='Chemin vers le fichier à importer')
@@ -115,17 +119,21 @@ if args.context == "movies":
                 print(f"Aucun film n'a été trouvé avec l'id {movie_id}")
             else:
                 print(movie)
-
-        
+    
     if args.action == "search":
         if args.imdb:
             movie_query = args.imdb
             movie_imdb = MovieDatabase(TMDB_API_KEY, OMDB_API_KEY).get_imdb_id(movie_query)
            
             if (movie_imdb == None):
-                print(f"Aucun Imdb ID n'a été trouvé pour ce film : {movie_query}")
+                print(f"Aucun IMDb ID n'a été trouvé pour ce film : {movie_query}")
             else:
                 print(movie_imdb)
+
+    if args.action == "scrapper":
+        if args.url:
+            ScrapperWikipedia().scrapper_movie_wikipedia(args.url)
+
 
     if args.action == "insert":
         print(f"Insertion d'un nouveau film: {args.title}")

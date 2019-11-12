@@ -4,7 +4,9 @@ import random
 import json
 import os
 
+from peoplefactory import PeopleFactory
 from moviefactory import MovieFactory
+from moviepeoplerolefactory import MoviePeopleRoleFactory
 from person import Person
 from movie import Movie
 
@@ -17,18 +19,16 @@ class MovieDatabase:
     def get_imdb_id(self, query):
 
         """
-        Get Imdb ID by movie query
+        Return the IMDb ID of the movie
         """
         base_url_omdb = 'http://www.omdbapi.com/?'
         final_url_omdb = base_url_omdb + '&apikey=' + self.omdb_api_key + '&s=' + query 
-        # print(final_url_omdb)
         
         request_omdb = requests.get(final_url_omdb)
         response = request_omdb.status_code
         if response == 200:
             data_omdb = request_omdb.json()
             if data_omdb['Response'] == "True":
-                # print(f"IMDB ID: {data_omdb['Search'][0]['imdbID']}")
                 result = data_omdb['Search'][0]['imdbID']
             else:
                 result = "IMDb ID not found"
@@ -48,6 +48,10 @@ class MovieDatabase:
 
     def get_random_movie(self):
 
+        """
+        Return random movie with API call
+        """
+
         url = 'https://api.themoviedb.org/3/movie/latest?api_key=' + self.tmdb_api_key
         req_prepare = requests.get(url)
         data_prepare = req_prepare.json()
@@ -62,6 +66,7 @@ class MovieDatabase:
             req = requests.get(final_url)
             response = req.status_code
 
+            # Si erreur 404 passe au tour de boucle suivant
             if response == 404:
                 continue
 
@@ -71,6 +76,7 @@ class MovieDatabase:
             imdb_id = self.get_imdb_id(data['title'])
             print(imdb_id)
 
+            # Si aucun IMDb n'a été trouvé, passe au tour de boucle suivant
             if imdb_id == "IMDb ID not found" or imdb_id == None:
                 continue
 
@@ -102,10 +108,92 @@ class MovieDatabase:
                     )
             print(f"Nouveau film '{details_tmdb['title']}' inséré avec l'id {movie_id}")
 
+
+            # Actors
+
+            actors = details_omdb['Actors'].split(",")
+            for actor in actors:
+                actor = actor.strip().split(" ")
+
+                if len(actor) == 3:
+                    firstname_a = actor[0] + ' ' + actor[1]
+                    lastname_a = actor[2]
+                else:
+                    firstname_a = actor[0]
+                    lastname_a = actor[1]
+                
+                person_id = PeopleFactory().insert(
+                    Person(
+                        firstname = firstname_a,
+                        lastname = lastname_a
+                    )
+                )
+                print(f"{firstname_a} {lastname_a} inséré avec l'id {person_id}")
+
+                MoviePeopleRoleFactory().insert(
+                    movie_id = movie_id,
+                    person_id = person_id,
+                    role_id = 1
+                )
+
+            # Directors
+
+            directors = details_omdb['Director'].split(",")
+            for director in directors:
+                director = director.strip().split(" ")
+                firstname_d = director[0]
+                lastname_d = director[1]
+
+                person_id = PeopleFactory().insert(
+                    Person(
+                        firstname = firstname_d,
+                        lastname = lastname_d
+                    )
+                )
+                print(f"{firstname_d} {lastname_d} inséré avec l'id {person_id}")
+
+                MoviePeopleRoleFactory().insert(
+                        movie_id = movie_id,
+                        person_id = person_id,
+                        role_id = 2
+                    )
+
+            # Writers
+
+            writers = details_omdb['Writer'].replace('(screenplay by)', '').replace('(story)', '').split(",")      
+            for writer in writers:
+                writer = writer.strip().split(" ")
+
+                if len(writer) == 3:
+                    firstname_w = writer[0] + ' ' + writer[1]
+                    lastname_w = writer[2]
+                else:
+                    firstname_w = writer[0]
+                    lastname_w = writer[1]
+                print(f"Writer: {firstname_w} {lastname_w}")
+
+                person_id = PeopleFactory().insert(
+                    Person(
+                        firstname = firstname_w,
+                        lastname = lastname_w
+                    )
+                )
+                print(f"{firstname_w} {lastname_w} inséré avec l'id {person_id}")
+
+                MoviePeopleRoleFactory().insert(
+                    movie_id = movie_id,
+                    person_id = person_id,
+                    role_id = 3
+                )
+
             if response == 200: 
                 break
 
     def get_movies_by_year(self, year):
+
+        """
+        Return movies by year with API call
+        """
 
         url = 'https://api.themoviedb.org/3/discover/movie?api_key=' + self.tmdb_api_key
         final_url = url + "&primary_release_year=" + str(year) + '&sort_by=revenue.desc'
@@ -143,9 +231,8 @@ class MovieDatabase:
                             duration = details['runtime'],
                             rating = rating_movies(details_omdb['Rated']),
                             release_date = details['release_date']
-                            # print(f"Budget: {details['budget']}")
-                            # print(f"Bénéfices: {details['revenue']}")
-                            # print(f"Synopsis: {details['overview']}")
+                            # budget = details['budget'],
+                            # revenue = details['revenue'],
                         )
                     )
                     print(f"Nouveau film inséré avec l'id {movie_id}")
@@ -159,7 +246,7 @@ class MovieDatabase:
     def split_fullname(self, fullname):
 
         """
-        Get firstname and lastname of person by fullname
+        Return firstname and lastname of person
         """
         fullname = fullname.strip().split(" ")      
         if len(fullname) == 3:
@@ -174,10 +261,10 @@ class MovieDatabase:
     def get_people_by_movie(self, movie_title):
 
         """
-        Get people by movie (actors, directors, writers)  
+        Return people by movie (actors, directors, writers)  
         """
 
-        # get imdb ID of the movie 
+        # Get IMDb ID of the movie 
         imdb_id = self.get_imdb_id(movie_title)
         url_omdb_details = f'http://www.omdbapi.com/?i={imdb_id}&apikey=' + self.omdb_api_key
 
@@ -189,23 +276,44 @@ class MovieDatabase:
         for actor in actors:
             actor = actor.strip()
             actor = actor.split(" ")
-            # print(actor)
+
             if len(actor) == 3:
                 firstname = actor[0] + ' ' + actor[1]
                 lastname = actor[2]
             else:
                 firstname = actor[0]
                 lastname = actor[1]
-            print(f"Actor: {firstname}, {lastname}")
 
+            print(f"Actor: {firstname}, {lastname}")
+            
+            movie.role = "actor"
+            person_id = PeopleFactory().insert(
+                Person(
+                    firstname = firstname,
+                    lastname = lastname
+                )
+            )
+            print(f"{firstname} {lastname} inséré avec l'id {person_id}")
+
+                
         # Directors
         directors = details_omdb['Director'].split(",")
         for director in directors:
-            director = directors.strip()
-            director = directors.split(" ")
+            director = director.strip()
+            director = director.split(" ")
             firstname_d = director[0]
             lastname_d = director[1]
+            Person.role = "director"
             print(f"Director: {firstname_d}, {lastname_d}")
+
+            movie.role = "director"
+            person_id = PeopleFactory().insert(
+                Person(
+                    firstname = firstname,
+                    lastname = lastname
+                )
+            )
+            print(f"{firstname} {lastname} inséré avec l'id {person_id}")
 
         # Writers
         writers = details_omdb['Writer'].split(",")
@@ -214,4 +322,14 @@ class MovieDatabase:
             writer = writer.split(" ")
             firstname_w = writer[0]
             lastname_w = writer[1]
+            Person.role = "writer"
             print(f"Writer: {firstname_w}, {lastname_w}")
+
+            movie.role = "writer"
+            person_id = PeopleFactory().insert(
+                Person(
+                    firstname = firstname,
+                    lastname = lastname
+                )
+            )
+            print(f"{firstname} {lastname} inséré avec l'id {person_id}")
