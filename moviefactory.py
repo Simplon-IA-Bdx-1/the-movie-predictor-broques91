@@ -7,8 +7,8 @@ class MovieFactory(Database):
         cnx = self.connect_to_database()
         cursor = self.create_cursor()
         stmt = ("INSERT INTO movies "
-                "(title, original_title, synopsis, duration, rating, release_date, imdb_id)" 
-                "VALUES (%s, %s, %s, %s, %s, %s, %s)")
+                "(title, original_title, synopsis, duration, rating, release_date, budget, revenue, imdb_id, score)" 
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
         movie_details = (
             movie.title,
             movie.original_title,
@@ -16,7 +16,10 @@ class MovieFactory(Database):
             movie.duration,
             movie.rating,
             movie.release_date,
-            movie.imdb_id
+            movie.budget,
+            movie.revenue,
+            movie.imdb_id,
+            movie.score
         )
         cursor.execute(stmt, movie_details)
         cnx.commit()
@@ -35,14 +38,17 @@ class MovieFactory(Database):
         if cursor.rowcount == 1:
             row = results[0]
             movie = Movie(
-                row['title'], 
-                row['original_title'], 
-                row['synopsis'], 
-                row['duration'], 
-                row['production_budget'], 
-                row['release_date'], 
-                row['vote_average'], 
-                row['revenue'])
+                title=row['title'], 
+                original_title= row['original_title'], 
+                synopsis= row['synopsis'], 
+                duration= row['duration'],
+                rating = row['rating'], 
+                release_date = row['release_date'],
+                budget = row['budget'], 
+                revenue = row['revenue'] ,
+                imdb_id = row['imdb_id'], 
+                score = row['vote_average'] 
+                )
             movie.id = row['id']
         self.close_cursor()
         self.disconnect_database()
@@ -69,9 +75,14 @@ class MovieFactory(Database):
             movie = Movie(
                 title = result['title'],
                 original_title = result['original_title'],
+                synopsis = result['synopsis'],
                 duration = result['duration'],
                 rating = result['rating'],
-                release_date = result['release_date']
+                release_date = result['release_date'],
+                budget = result['budget'],
+                revenue = result['revenue'],
+                imdb_id = result['imdb_id'],
+                score = result['score']
             )
             movie.id = result['id']
             movies.append(movie)

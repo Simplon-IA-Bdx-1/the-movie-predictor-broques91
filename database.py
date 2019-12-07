@@ -1,12 +1,15 @@
 import os
 import mysql.connector
 
+from dotenv import load_dotenv
+load_dotenv('auth.env')
+
 class Database(object):
 
     def __init__(self):
 
-        password = os.environ.get('MYSQL_PASSWORD')
-        conn = mysql.connector.connect(user='predictor', password=password, host='database', database='predictor')
+        password = os.getenv('MYSQL_PASSWORD')
+        conn = mysql.connector.connect(user='predictor', password=password, host='localhost', database='predictor')
 
         self.cnx = conn
 

@@ -19,15 +19,20 @@ import os
 from database import Database
 from movie import Movie
 from person import Person
+from company import Company
 from moviefactory import MovieFactory
 from peoplefactory import PeopleFactory
+from companyfactory import CompanyFactory
 from scrapper import ScrapperWikipedia
 from moviedb import MovieDatabase
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-TMDB_API_KEY = os.environ.get('TMDB_API_KEY')
-OMDB_API_KEY = os.environ.get('OMDB_API_KEY')
+from dotenv import load_dotenv
+load_dotenv('auth.env')
+
+TMDB_API_KEY = os.getenv('TMDB_API_KEY')
+OMDB_API_KEY = os.getenv('OMDB_API_KEY')
 
 # Parser
 parser = argparse.ArgumentParser(description='Process MoviePredictor data')
@@ -84,7 +89,7 @@ if args.context == "people":
                     writer.writerow(person.__dict__.values())
         else:
             for person in people:
-                Person().__repr__(person)
+                print(person)
 
     if args.action == "find":
         person_id = args.id
@@ -165,7 +170,7 @@ if args.context == "movies":
 
         if args.api:
             if args.year:
-                MovieDatabase().get_movies_by_year(args.year)
+                MovieDatabase(TMDB_API_KEY, OMDB_API_KEY).get_movies_by_year(args.year)
             if args.random:
                 MovieDatabase(TMDB_API_KEY, OMDB_API_KEY).get_random_movie()
           
